@@ -2,54 +2,235 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>AR.js Model Viewer</title>
 
-    <title>AR.js Marker</title>
+    <!-- Load WebXR polyfill for iOS -->
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    <script>
+      // Initialize WebXR polyfill
+      var polyfill = new WebXRPolyfill();
+      
+      // Force HTTPS to ensure WebXR works
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
+      }
+    </script>
 
-    <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- AR.js A-Frame build -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <!-- Model loader -->
     <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
 
     <style>
-      body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; }
-      a-scene { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+      .arjs-loader {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        background-color: rgba(0, 0, 0, 0.8);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .arjs-loader div {
+        text-align: center;
+        font-size: 1.25em;
+        color: white;
+      }
+
+      #error-message {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(255, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        z-index: 9999;
+        display: none;
+      }
+
+      #debug-info {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        z-index: 9999;
+        font-family: monospace;
+        font-size: 12px;
+      }
     </style>
   </head>
 
-  <body>
+  <body style="margin: 0; overflow: hidden">
+    <!-- Loading screen -->
+    <div class="arjs-loader">
+      <div>Loading, please wait...</div>
+    </div>
+
+    <!-- Error and debug messages -->
+    <div id="error-message"></div>
+    <div id="debug-info">
+      Camera: Initializing...<br>
+      Marker: Not detected<br>
+      Model: Not loaded
+    </div>
+
     <a-scene
-      embedded
       vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; antialias: true;"
-      arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false; smoothCount: 10;"
-      camera="userHeight: 1.6; fov: 80; aspect-ratio: window; position: 0 1.6 0;"
+      loading-screen="enabled: false"
+      renderer="logarithmicDepthBuffer: true; antialias: true; precision: mediump; powerPreference: high-performance;"
+      arjs="trackingMethod: best; sourceType: webcam; sourceWidth:1280; sourceHeight:960; displayWidth: 1280; displayHeight: 960; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; maxDetectionRate: 60;"
+      embedded
+      gesture-detector
     >
-      <a-assets>
-        <a-asset-item id="model" src="model3.glb"></a-asset-item>
+      <a-assets timeout="30000">
+        <a-asset-item 
+          id="animated-asset" 
+          src="https://cdn.glitch.global/your-project/model3.glb"
+          response-type="arraybuffer"
+          crossorigin="anonymous"
+        ></a-asset-item>
       </a-assets>
 
-      <a-marker type="pattern" url="marker.patt" size="0.297">
-        <a-entity gltf-model="#model" scale="3.37 3.37 3.37" animation-mixer="loop: repeat;"></a-entity>
+      <a-marker
+        id="animated-marker"
+        type="pattern"
+        preset="custom"
+        url="marker.patt"
+        raycaster="objects: .clickable"
+        emitevents="true"
+        cursor="fuse: false; rayOrigin: mouse"
+        smooth="true"
+        smoothCount="15"
+        smoothTolerance="0.005"
+        smoothThreshold="1"
+        maxTrackingTime="2"
+      >
+        <a-entity
+          scale="3.37 3.37 3.37"
+          animation-mixer="loop: repeat; timeScale: 1; crossFadeDuration: 0.4;"
+          gltf-model="#animated-asset"
+          class="clickable"
+          gesture-handler="minScale: 0.5; maxScale: 5"
+          position="0 0 0"
+          rotation="0 0 0"
+        ></a-entity>
       </a-marker>
 
-      <a-entity camera position="0 0 0" look-controls="pointerLockEnabled: false;"></a-entity>
+      <a-entity camera></a-entity>
+      <a-light type="directional" intensity="3" position="2 4 4"></a-light>
+      <a-light type="ambient" intensity="0.5" color="#BBB"></a-light>
     </a-scene>
 
     <script>
-      // Wait for the scene to load, then fix up the <video> element for iOS
-      AFRAME.scenes[0].addEventListener('renderstart', () => {
-        const video = document.querySelector('video');
-        if (video) {
-          video.setAttribute('playsinline', '');  // critical for iOS to allow inline playback
-          video.setAttribute('muted', '');        // avoid autoplay blocking
-          video.setAttribute('autoplay', '');     // start immediately
-          video.play().catch(() => {
-            console.warn('iOS: video.play() was blocked; user gesture may be required.');
+      // Wait for DOM to be fully loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        const scene = document.querySelector('a-scene');
+        const loader = document.querySelector('.arjs-loader');
+        const errorMessage = document.getElementById('error-message');
+        const debugInfo = document.getElementById('debug-info');
+        const marker = document.querySelector('#animated-marker');
+        const model = document.querySelector('[gltf-model]');
+        let lastVisible = Date.now();
+        
+        // Check if camera is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          errorMessage.textContent = 'Camera access is not available in your browser';
+          errorMessage.style.display = 'block';
+        }
+
+        // Handle model loading errors
+        if (model) {
+          model.addEventListener('model-error', function(error) {
+            console.error('Model failed to load:', error);
+            errorMessage.textContent = 'Failed to load 3D model. Please check the model file path and format.';
+            errorMessage.style.display = 'block';
+            debugInfo.innerHTML = debugInfo.innerHTML.replace('Model: Not loaded', 'Model: Error loading');
+          });
+
+          model.addEventListener('model-loaded', function() {
+            console.log('Model loaded successfully');
+            debugInfo.innerHTML = debugInfo.innerHTML.replace('Model: Not loaded', 'Model: Loaded successfully');
+          });
+        }
+
+        // Handle scene loading
+        if (scene) {
+          scene.addEventListener('loaded', function () {
+            if (loader) {
+              loader.style.display = 'none';
+            }
+            if (debugInfo) {
+              debugInfo.innerHTML = debugInfo.innerHTML.replace('Camera: Initializing...', 'Camera: Active');
+            }
+          });
+        }
+
+        // Handle marker detection
+        if (marker) {
+          marker.addEventListener('markerFound', () => {
+            lastVisible = Date.now();
+            if (debugInfo) {
+              debugInfo.innerHTML = debugInfo.innerHTML.replace('Marker: Not detected', 'Marker: Detected');
+            }
+            marker.object3D.visible = true;
+          });
+
+          marker.addEventListener('markerLost', () => {
+            setTimeout(() => {
+              if (Date.now() - lastVisible > 200) {
+                marker.object3D.visible = false;
+                if (debugInfo) {
+                  debugInfo.innerHTML = debugInfo.innerHTML.replace('Marker: Detected', 'Marker: Not detected');
+                }
+              }
+            }, 200);
+          });
+        }
+
+        // iOS specific workaround
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+          window.addEventListener('load', function() {
+            document.documentElement.style.height = '100%';
+            document.body.style.height = '100%';
+            document.documentElement.style.position = 'fixed';
+          });
+        }
+
+        // Handle asset loading timeout
+        const assets = document.querySelector('a-assets');
+        if (assets) {
+          assets.addEventListener('timeout', function() {
+            console.error('Asset loading timeout');
+            errorMessage.textContent = 'Asset loading timeout - check if model file exists and is accessible';
+            errorMessage.style.display = 'block';
+          });
+        }
+
+        // Fix video element for iOS and other mobile devices
+        if (AFRAME.scenes[0]) {
+          AFRAME.scenes[0].addEventListener('renderstart', () => {
+            const video = document.querySelector('video');
+            if (video) {
+              video.setAttribute('playsinline', '');
+              video.setAttribute('webkit-playsinline', '');
+              video.setAttribute('muted', '');
+              video.setAttribute('autoplay', '');
+              video.play().catch(() => {
+                console.warn('Video autoplay was blocked');
+              });
+            }
           });
         }
       });
