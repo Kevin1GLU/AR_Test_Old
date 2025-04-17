@@ -1,58 +1,48 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <title>AR.js Marker</title>
-
-    <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- AR.js A-Frame build -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <!-- Model loader -->
     <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
-
-    <style>
-      body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; }
-      a-scene { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    </style>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
   </head>
 
-  <body>
+  <body style="margin: 0; overflow: hidden">
     <a-scene
-      embedded
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; antialias: true;"
-      arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false; smoothCount: 10;"
-      camera="userHeight: 1.6; fov: 80; aspect-ratio: window; position: 0 1.6 0;"
+      vr-mode-ui="enabled: false;"
+      loading-screen="enabled: false;"
+      renderer="logarithmicDepthBuffer: true;"
+      arjs="trackingMethod: best; sourceType: webcam; sourceWidth:1280; sourceHeight:960; displayWidth: 1280; displayHeight: 960; debugUIEnabled: false;"
+      id="scene"
+      xrweb="scale:absolute"
+      embedded     
     >
       <a-assets>
-        <a-asset-item id="model" src="model3.glb"></a-asset-item>
+        <a-asset-item id="animated-asset" src="model3.glb"></a-asset-item>
       </a-assets>
 
-      <a-marker type="pattern" url="marker.patt" size="0.297">
-        <a-entity gltf-model="#model" scale="3.37 3.37 3.37" animation-mixer="loop: repeat;"></a-entity>
+      <a-marker
+        id="animated-marker"
+        type="pattern"
+        preset="custom"
+        url="marker.patt"
+        raycaster="objects: .clickable"
+        emitevents="true"
+        cursor="fuse: false; rayOrigin: mouse;"
+      >
+        <a-entity
+          scale="3.3 3.3 3.3"        
+          rotation="0 0 0"
+          animation-mixer="loop: repeat"
+          gltf-model="#animated-asset"
+          class="clickable"
+        ></a-entity>
       </a-marker>
 
-      <a-entity camera position="0 0 0" look-controls="pointerLockEnabled: false;"></a-entity>
+      <a-entity camera></a-entity>
+      <a-light type="directional" light="castShadow:false;" intensity="3" position="2 4 4"></a-light>
+      <a-light type="ambient" intensity="0.5" color="#BBB"></a-light>
     </a-scene>
-
-    <script>
-      // Wait for the scene to load, then fix up the <video> element for iOS
-      AFRAME.scenes[0].addEventListener('renderstart', () => {
-        const video = document.querySelector('video');
-        if (video) {
-          video.setAttribute('playsinline', '');  // critical for iOS to allow inline playback
-          video.setAttribute('muted', '');        // avoid autoplay blocking
-          video.setAttribute('autoplay', '');     // start immediately
-          video.play().catch(() => {
-            console.warn('iOS: video.play() was blocked; user gesture may be required.');
-          });
-        }
-      });
-    </script>
   </body>
 </html>
